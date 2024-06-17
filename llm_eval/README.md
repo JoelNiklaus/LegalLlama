@@ -1,7 +1,10 @@
 # SETUP
 
 See: https://github.com/TheElevatedOne/Tensordock-server-for-AI
+tensordock api doc: https://documenter.getpostman.com/view/20973002/2s8YzMYRDc
+
 Add api_key and api_token from tensordock to secrets.env. These will be used in most other commands.
+
 Change settings.env to match needs.
 
 Generate .ssh key-pair for access to the server.
