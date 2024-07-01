@@ -6,12 +6,12 @@ import seaborn as sns
 df = pd.read_csv('output/model_scores.csv', index_col=0)
 
 models_to_plot = [
+    "CohereForAI__aya-23-8B",
     "mistralai__Mistral-7B-Instruct-v0.3",
     # "Qwen__Qwen2-0.5B-Instruct",
     # "Qwen__Qwen2-1.5B-Instruct",
     "Qwen__Qwen2-7B-Instruct",
-    # "google__gemma-2-9b-it",
-    # "CohereForAI__aya-23-8B",
+    "google__gemma-2-9b-it",
     # "microsoft__Phi-3-medium-128k-instruct",
     "microsoft__Phi-3-small-128k-instruct",
     # "microsoft__Phi-3-mini-128k-instruct",
@@ -21,7 +21,7 @@ task_map = {
     'arc_aggregate': 'ARC',
     'belebele_aggregate': 'Belebele',
     'truthfulqa_aggregate': 'TruthfulQA',
-    'm_mmlu_aggregate': 'M_MMLU'
+    'm_mmlu_aggregate': 'M-MMLU'
 }
 
 language_map = {f"{lang}_aggregate": lang for lang in ['en', 'es', 'de', 'fr', 'it']}
