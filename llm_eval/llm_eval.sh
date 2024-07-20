@@ -9,6 +9,17 @@ activate
 
 # Inspired by the Euro-LLM-Leaderboard: https://huggingface.co/spaces/occiglot/euro-llm-leaderboard
 
+BATCH_SIZE="8"
+BATCH_SIZE="auto:4"
+
+GPU_NUMBER=-1 # Set to -1 to run on all GPUs
+
+# 0: nemo MMLU
+# 1: nemo MMLU
+# 2: nemo MMLU
+# 3: nemo MMLU
+
+
 TASKS=(
     "TruthfulQA"
     "Belebele"
@@ -23,9 +34,12 @@ MODELS=(
     #"mistralai/Mistral-7B-Instruct-v0.3" # completed
     #"microsoft/Phi-3-medium-128k-instruct" # completed
     #"microsoft/Phi-3-small-128k-instruct" # completed: Belebele needs constant batch size 16
-    "microsoft/Phi-3-mini-128k-instruct" # Belebele, ARC, and MMLU fail with OOM
+    #"microsoft/Phi-3-mini-128k-instruct" # Belebele, ARC, and MMLU fail with OOM
     #"CohereForAI/aya-23-8B" # completed
     #"google/gemma-2-9b-it" # completed: ARC needs constant batch size 8
+    #"Qwen/Qwen1.5-14B-Chat" # completed
+    #"mistralai/Mistral-Nemo-Instruct-2407" # completed, currently needs transformers from source: pip install git+https://github.com/huggingface/transformers.git
+    #"stabilityai/stablelm-2-12b-chat" # completed
 )
 OUTPUT_DIR="./output"
 
@@ -39,12 +53,33 @@ run_lm_eval() {
     local num_fewshot=$3
     local task_name=$4
 
-    BATCH_SIZE="8"
-    BATCH_SIZE="auto:4"
+    # Prepare the command
+    cmd="lm_eval \
+        --model hf \
+        --model_args pretrained=$model \
+        --tasks $task_list \
+        --num_fewshot $num_fewshot \
+        --batch_size $BATCH_SIZE \
+        --output_path ${OUTPUT_DIR} \
+        --use_cache ${OUTPUT_DIR}/cache/$model \
+        --trust_remote_code"
+
+    if [ $GPU_NUMBER -eq -1 ]; then
+        # Run on all GPUs
+        cmd="accelerate launch --no-python $cmd"
+    elif [[ $GPU_NUMBER == *","* ]]; then # if there is a comma in the GPU_NUMBER
+        # Run on multiple GPUs
+        cmd="env CUDA_VISIBLE_DEVICES=$GPU_NUMBER accelerate launch --no-python $cmd"
+    else
+        # Run on specific GPU
+        cmd="env CUDA_VISIBLE_DEVICES=$GPU_NUMBER $cmd"
+    fi
+
+    echo $cmd
 
     echo "Running $task_name with $num_fewshot-shot for model $model"
     # IMPORTANT: Remove "accelerate launch --no-python" to run on only one GPU
-    if ! accelerate launch --no-python lm_eval --model hf --model_args pretrained=$model --tasks $task_list --num_fewshot $num_fewshot --batch_size $BATCH_SIZE --output_path "${OUTPUT_DIR}" --trust_remote_code; then
+    if ! $cmd; then
         echo "The evaluation for $task_name with model $model failed. Please check the logs in ${OUTPUT_DIR} for more information."
         return 1
     fi

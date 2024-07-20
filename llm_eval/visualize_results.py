@@ -12,12 +12,12 @@ models_to_plot = [
     # "Qwen__Qwen2-1.5B-Instruct",
     # "Qwen__Qwen2-7B-Instruct",
     # "google__gemma-2-9b-it",
-    "microsoft__Phi-3-medium-128k-instruct",
     # "microsoft__Phi-3-small-128k-instruct",
     # "microsoft__Phi-3-mini-128k-instruct",
-    "Qwen/Qwen1.5-14B-Chat",
-    "mistralai/Mistral-Nemo-Instruct-2407",
-    "stabilityai/stablelm-2-12b-chat",
+    "stabilityai__stablelm-2-12b-chat",
+    "Qwen__Qwen1.5-14B-Chat",
+    "mistralai__Mistral-Nemo-Instruct-2407",
+    "microsoft__Phi-3-medium-128k-instruct",
 ]
 
 task_map = {
