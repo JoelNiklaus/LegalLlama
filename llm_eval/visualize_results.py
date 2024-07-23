@@ -6,18 +6,22 @@ import seaborn as sns
 df = pd.read_csv('output/model_scores.csv', index_col=0)
 
 models_to_plot = [
-    # "CohereForAI__aya-23-8B",
-    # "mistralai__Mistral-7B-Instruct-v0.3",
     # "Qwen__Qwen2-0.5B-Instruct",
+
     # "Qwen__Qwen2-1.5B-Instruct",
-    # "Qwen__Qwen2-7B-Instruct",
-    # "google__gemma-2-9b-it",
-    # "microsoft__Phi-3-small-128k-instruct",
     # "microsoft__Phi-3-mini-128k-instruct",
-    "stabilityai__stablelm-2-12b-chat",
-    "Qwen__Qwen1.5-14B-Chat",
-    "mistralai__Mistral-Nemo-Instruct-2407",
-    "microsoft__Phi-3-medium-128k-instruct",
+
+    # "CohereForAI__aya-23-8B",
+    "mistralai__Mistral-7B-Instruct-v0.3",
+    "meta-llama__Meta-Llama-3.1-8B-Instruct",
+    "Qwen__Qwen2-7B-Instruct",
+    "google__gemma-2-9b-it",
+    "microsoft__Phi-3-small-128k-instruct",
+
+    #"stabilityai__stablelm-2-12b-chat",
+    #"Qwen__Qwen1.5-14B-Chat",
+    #"mistralai__Mistral-Nemo-Instruct-2407",
+    #"microsoft__Phi-3-medium-128k-instruct",
 ]
 
 task_map = {

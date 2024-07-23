@@ -32,6 +32,7 @@ MODELS=(
     #"Qwen/Qwen2-1.5B-Instruct" # completed
     #"Qwen/Qwen2-0.5B-Instruct" # completed
     #"mistralai/Mistral-7B-Instruct-v0.3" # completed
+    "meta-llama/Meta-Llama-3.1-8B-Instruct"
     #"microsoft/Phi-3-medium-128k-instruct" # completed
     #"microsoft/Phi-3-small-128k-instruct" # completed: Belebele needs constant batch size 16
     #"microsoft/Phi-3-mini-128k-instruct" # Belebele, ARC, and MMLU fail with OOM
@@ -61,7 +62,7 @@ run_lm_eval() {
         --num_fewshot $num_fewshot \
         --batch_size $BATCH_SIZE \
         --output_path ${OUTPUT_DIR} \
-        --use_cache ${OUTPUT_DIR}/cache/$model \
+        --use_cache ${OUTPUT_DIR}/cache/$model/$task_name \
         --trust_remote_code"
 
     if [ $GPU_NUMBER -eq -1 ]; then
