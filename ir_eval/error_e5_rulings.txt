@@ -1,0 +1,4 @@
+  File "/home/user/mambaforge/envs/tensorml/lib/python3.11/site-packages/beir/retrieval/search/dense/util.py", line 24, in cos_sim
+    return torch.mm(a_norm, b_norm.transpose(0, 1)) #TODO: this keeps allocating GPU memory
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 26.33 GiB. GPU 0 has a total capacty of 47.54 GiB of which 18.56 GiB is free. Including non-PyTorch memory, this process has 28.97 GiB memory in use. Of the allocated memory 27.84 GiB is allocated by PyTorch, and 845.35 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting max_split_size_mb to avoid fragmentation.  See documentation for Memory Management and PYTORCH_CUDA_ALLOC_CONF

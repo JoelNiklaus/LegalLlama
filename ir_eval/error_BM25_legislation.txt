@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/home/user/Eval_BM25_legislation.py", line 23, in <module>
+    results = retriever.retrieve(corpus, queries)
+  File "/home/user/mambaforge/envs/myenv/lib/python3.9/site-packages/beir/retrieval/evaluation.py", line 20, in retrieve
+    return self.retriever.search(corpus, queries, self.top_k, self.score_function, **kwargs)
+  File "/home/user/mambaforge/envs/myenv/lib/python3.9/site-packages/beir/retrieval/search/lexical/bm25_search.py", line 52, in search
+    results = self.es.lexical_multisearch(
+  File "/home/user/mambaforge/envs/myenv/lib/python3.9/site-packages/beir/retrieval/search/lexical/elastic_search.py", line 193, in lexical_multisearch
+    responses = resp["hits"]["hits"][skip:]
+KeyError: 'hits'
