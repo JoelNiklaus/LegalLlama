@@ -13,16 +13,20 @@ swiss_rulings_corpus.to_json('dataset/corpus_rulings.jsonl')
 swiss_rulings_corpus.cleanup_cache_files()
 print(swiss_rulings_corpus)
 
-queries = doc2doc.select_columns(['_id', 'text'])
+queries = doc2doc.filter(lambda entry: entry['text']).filter(lambda entry: entry['year'] >= 2020).select_columns(['_id', 'text'])
 queries = concatenate_datasets([queries['train'], queries['validation'], queries['test']])
 queries.to_json('dataset/queries.jsonl')
+reduced_query_ids = set(queries['_id'])
 queries.cleanup_cache_files()
 print(queries)
+
 
 def gen_rulings():
   for split in doc2doc:
     for row in doc2doc[split]:
       _id = row.get('_id')
+      if _id not in reduced_query_ids:
+                continue
       cited_rulings_raw = row.get('cited_rulings')
 
       cited_rulings = [s.strip().strip("'") for s in cited_rulings_raw.strip("[]").split(',')]
@@ -38,6 +42,8 @@ def gen_legislation():
   for split in doc2doc:
     for row in doc2doc[split]:
       _id = row.get('_id')
+      if _id not in reduced_query_ids:
+                continue
       laws_raw = row.get('laws')
 
       laws = [s.strip().strip("'") for s in laws_raw.strip("[]").split(',')]
