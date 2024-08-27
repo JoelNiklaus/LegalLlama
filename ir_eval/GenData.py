@@ -8,18 +8,13 @@ legislation.to_json('dataset/corpus_legislation.jsonl')
 legislation.cleanup_cache_files()
 print(legislation)
 
-swiss_rulings_corpus = rulings.filter(lambda entry: entry['text'] != "").select_columns(['_id', 'title', 'text'])['train']
-swiss_rulings_corpus.to_json('dataset/corpus_rulings.jsonl')
-swiss_rulings_corpus.cleanup_cache_files()
-print(swiss_rulings_corpus)
 
-queries = doc2doc.filter(lambda entry: entry['text']).filter(lambda entry: entry['year'] >= 2020).select_columns(['_id', 'text'])
+queries = doc2doc.filter(lambda entry: entry['text']).select_columns(['_id', 'text'])
 queries = concatenate_datasets([queries['train'], queries['validation'], queries['test']])
 queries.to_json('dataset/queries.jsonl')
 reduced_query_ids = set(queries['_id'])
 queries.cleanup_cache_files()
 print(queries)
-
 
 def gen_rulings():
   for split in doc2doc:
@@ -35,8 +30,13 @@ def gen_rulings():
         yield {'_id': _id, 'cited_ruling': cited_ruling, 'score': 1}
 
 swiss_ir_court_rulings = Dataset.from_generator(gen_rulings)
+reduced_rulings = set(swiss_ir_court_rulings['cited_ruling'])
 swiss_ir_court_rulings.to_csv('dataset/qrels_rulings.tsv', sep="\t")
 
+swiss_rulings_corpus = rulings.filter(lambda entry: entry['text'] != "").filter(lambda entry: entry['_id'] in reduced_rulings).select_columns(['_id', 'title', 'text'])['train']
+swiss_rulings_corpus.to_json('dataset/corpus_rulings.jsonl')
+swiss_rulings_corpus.cleanup_cache_files()
+print(swiss_rulings_corpus)
 
 def gen_legislation():
   for split in doc2doc:
