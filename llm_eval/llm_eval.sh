@@ -12,12 +12,10 @@ activate
 BATCH_SIZE="8"
 BATCH_SIZE="auto:4"
 
-GPU_NUMBER=-1 # Set to -1 to run on all GPUs
+GPU_NUMBER=0 # Set to -1 to run on all GPUs
 
-# 0: nemo MMLU
-# 1: nemo MMLU
-# 2: nemo MMLU
-# 3: nemo MMLU
+# 0: Qwen-2.5-7B ARC
+# 1: Qwen-2.5-7B MMLU
 
 
 TASKS=(
@@ -28,16 +26,32 @@ TASKS=(
 ) # Exclude "HellaSwag" for cost reasons
 
 MODELS=(
-    #"Qwen/Qwen2-7B-Instruct" # completed
+    # ========== 1-3B range ==========
+    #"google/flan-t5-xl" # completed
+    #"Qwen/Qwen2.5-1.5B-Instruct" # completed
     #"Qwen/Qwen2-1.5B-Instruct" # completed
     #"Qwen/Qwen2-0.5B-Instruct" # completed
-    #"mistralai/Mistral-7B-Instruct-v0.3" # completed
-    "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    #"microsoft/Phi-3-medium-128k-instruct" # completed
-    #"microsoft/Phi-3-small-128k-instruct" # completed: Belebele needs constant batch size 16
+    #"microsoft/Phi-3.5-mini-instruct" # completed
     #"microsoft/Phi-3-mini-128k-instruct" # Belebele, ARC, and MMLU fail with OOM
+    #"meta-llama/Llama-3.2-1B-Instruct" # completed
+    #"meta-llama/Llama-3.2-3B-Instruct" # completed
+    #"utter-project/EuroLLM-1.7B-Instruct" # completed
+    #"BSC-LT/salamandra-2b-instruct" # completed
+    # ========== 7-8B range ==========
+    #"BSC-LT/salamandra-7b-instruct" # completed
+    #"CohereForAI/aya-expanse-8b" # completed
+    #"Qwen/Qwen2.5-7B-Instruct" # completed
+    #"Qwen/Qwen2-7B-Instruct" # completed
+    #"mistralai/Mistral-7B-Instruct-v0.3" # completed
+    #"mistralai/Ministral-8B-Instruct-2410" # completed
+    #"meta-llama/Meta-Llama-3.1-8B-Instruct" # completed
+    #"microsoft/Phi-3-small-128k-instruct" # completed: Belebele needs constant batch size 16
     #"CohereForAI/aya-23-8B" # completed
     #"google/gemma-2-9b-it" # completed: ARC needs constant batch size 8
+    # ========== 12-14B range ==========
+    "google/flan-t5-xxl" # TODO: run all
+    "Qwen/Qwen2.5-14B-Instruct" # TODO: run all
+    #"microsoft/Phi-3-medium-128k-instruct" # completed
     #"Qwen/Qwen1.5-14B-Chat" # completed
     #"mistralai/Mistral-Nemo-Instruct-2407" # completed, currently needs transformers from source: pip install git+https://github.com/huggingface/transformers.git
     #"stabilityai/stablelm-2-12b-chat" # completed
@@ -64,6 +78,10 @@ run_lm_eval() {
         --output_path ${OUTPUT_DIR} \
         --use_cache ${OUTPUT_DIR}/cache/$model/$task_name \
         --trust_remote_code"
+
+# These are only applicable for chat models
+#        --apply_chat_template \
+#        --fewshot_as_multiturn"
 
     if [ $GPU_NUMBER -eq -1 ]; then
         # Run on all GPUs
