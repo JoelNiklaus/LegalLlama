@@ -27,6 +27,7 @@ TASKS=(
 
 MODELS=(
     # ========== 1-3B range ==========
+    #"google/flan-t5-large" # completed
     #"google/flan-t5-xl" # completed
     #"Qwen/Qwen2.5-1.5B-Instruct" # completed
     #"Qwen/Qwen2-1.5B-Instruct" # completed
