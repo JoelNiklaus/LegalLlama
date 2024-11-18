@@ -1,2 +1,6 @@
+datasets
+trl
+transformers
+torch
 unsloth
 jinja2>=3.1.0 # needed for apply_chat_template
