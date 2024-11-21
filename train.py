@@ -7,6 +7,7 @@ More documentation: https://github.com/unslothai/unsloth/wiki#train-on-completio
 
 import os
 
+import torch
 from transformers import EarlyStoppingCallback, DataCollatorForSeq2Seq
 from trl import SFTTrainer, SFTConfig, DataCollatorForCompletionOnlyLM
 from datasets import load_dataset
@@ -37,12 +38,14 @@ batch_size = 32
 total_batch_size = 64  # Keep this stable for reproducibility
 gradient_accumulation_steps = int(total_batch_size / batch_size)
 max_seq_length = 2048  # Choose any! We auto support RoPE Scaling internally!
-dtype = (
-    None  # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
-)
+max_seq_length = 512  # Can go down to this because when we look at the sentence level, they go rarely above 200 whitespace split words
+dtype = None  # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
 load_in_4bit = True  # Use 4bit quantization to reduce memory usage. Can be False.
 
 run_name = f"{model_name}-{dataset_name}"
+
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+
 
 # 4bit pre quantized models we support for 4x faster downloading + no OOMs.
 fourbit_models = [
@@ -128,11 +131,8 @@ def formatting_prompts_func(examples):
 def create_prompt(example, source_lang, target_lang):
     prompt = {
         "role": "user",
-        "content": f"""
-Translate the following Swiss law article from {source_lang} to {target_lang}:
-{example[f'{source_lang}_artTitle']}
-{example[f'{source_lang}_artText']}
-            """,
+        "content": f"""{source_lang.upper()}: {example[f'{source_lang}_artTitle']} {example[f'{source_lang}_artText']}
+{target_lang.upper()}:""",
     }
     answer = {
         "role": "assistant",
@@ -248,7 +248,7 @@ inputs = tokenizer.apply_chat_template(
     tokenize=True,
     add_generation_prompt=True,  # Must add for generation
     return_tensors="pt",
-).to("cuda")
+).to(device)
 
 outputs = model.generate(input_ids=inputs, max_new_tokens=64, use_cache=True)
 print(tokenizer.batch_decode(outputs))
