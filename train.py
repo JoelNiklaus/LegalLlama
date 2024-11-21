@@ -1,14 +1,13 @@
 """
 Adapted from here: https://colab.research.google.com/drive/1lN6hPQveB_mHSnTOYifygFcrO8C1bxq4?usp=sharing#scrollTo=Edrn7Rxmojtu
 
-More documentation: https://github.com/unslothai/unsloth/wiki#train-on-completions--responses-only-do-not-train-on-inputs
-
 """
 
+from ast import literal_eval
 import os
 
 import torch
-from transformers import EarlyStoppingCallback, DataCollatorForSeq2Seq
+from transformers import EarlyStoppingCallback
 from trl import SFTTrainer, SFTConfig, DataCollatorForCompletionOnlyLM
 from datasets import load_dataset
 
@@ -24,18 +23,36 @@ unsloth/Phi-3.5-mini-instruct-bnb-4bit: 128 uses 59GB VRAM
 unsloth/Qwen2.5-7B-Instruct-bnb-4bit: 32 uses 66GB VRAM
 unsloth/Qwen2.5-14B-Instruct-bnb-4bit: 32 uses 72GB VRAM
 unsloth/gemma-2-27b-bnb-4bit: 16 uses 67GB VRAM
+
+Batch sizes on an 80GB H100 with max_seq_length=512:
+Llama-3.2-1B-Instruct: 128 uses 51GB VRAM
+Qwen2.5-7B-Instruct: 128 uses 74GB VRAM
+Qwen2.5-14B-Instruct: 128 uses 74GB VRAM
 """
 
-debug = True
-
 model_name = "Llama-3.2-1B-Instruct"
-dataset_name = "SwissLawTranslations"
+model_name = "Qwen2.5-14B-Instruct"
+model_name = "Qwen2.5-7B-Instruct"
+dataset_name = "SwissLegalTranslations"
 hf_model_name = f"unsloth/{model_name}-bnb-4bit"
-chat_template = "llama"  # Supports zephyr, chatml, mistral, llama, alpaca, vicuna, vicuna_old, unsloth, phi-3
+
+if "llama" in model_name.lower():
+    chat_template = "llama"  # Supports zephyr, chatml, mistral, llama, alpaca, vicuna, vicuna_old, unsloth, phi-3
+elif "qwen" in model_name.lower():
+    chat_template = "chatml"
+elif "gemma" in model_name.lower():
+    chat_template = "chatml"
+elif "phi" in model_name.lower():
+    chat_template = "phi-3"
+elif "mistral" in model_name.lower():
+    chat_template = "mistral"
+else:
+    chat_template = "zephyr"
+
 train_on_responses_only = False  # The loss starts lower, but training is not faster
 
-batch_size = 32
-total_batch_size = 64  # Keep this stable for reproducibility
+batch_size = 128
+total_batch_size = 128  # Keep this stable for reproducibility
 gradient_accumulation_steps = int(total_batch_size / batch_size)
 max_seq_length = 2048  # Choose any! We auto support RoPE Scaling internally!
 max_seq_length = 512  # Can go down to this because when we look at the sentence level, they go rarely above 200 whitespace split words
@@ -75,7 +92,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
 print("Initializing PEFT model...")
 model = FastLanguageModel.get_peft_model(
     model,
-    r=16,  # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
+    r=128,  # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
     target_modules=[
         "q_proj",
         "k_proj",
@@ -92,7 +109,7 @@ model = FastLanguageModel.get_peft_model(
     use_gradient_checkpointing="unsloth",  # True or "unsloth" for very long context
     random_state=42,
     # rank stabilized LoRA: slightly higher training time, but better results at higher ranks (e.g., 256): https://huggingface.co/blog/damjan-k/rslora
-    use_rslora=False,
+    use_rslora=True,
     loftq_config=None,  # And LoftQ
 )
 
@@ -104,21 +121,24 @@ tokenizer = get_chat_template(
 
 def formatting_prompts_func(examples):
     convos = []
-    languages = ["de", "fr", "it", "rm", "en"]
-
-    for example in zip(*examples.values()):
-        example = {key: value for key, value in zip(examples.keys(), example)}
-        # Create a prompt for each language pair
-        for source_lang in languages:
-            for target_lang in languages:
-                if source_lang == target_lang:
-                    continue
-                if (
-                    not example[f"{source_lang}_artText"]
-                    or not example[f"{target_lang}_artText"]
-                ):
-                    continue  # skip when we don't have any translations for the language pair
-                convos.append(create_prompt(example, source_lang, target_lang))
+    for example in examples["translation"]:
+        if isinstance(example, str):
+            try:
+                example = literal_eval(example)
+            except (ValueError, SyntaxError) as e:
+                print(f"Error parsing string: {e}")
+                print(f"Problematic string: {example}")
+                continue
+        
+        # Get available languages from this specific example
+        languages = list(example.keys())
+        
+        if len(languages) == 2:  # We need exactly two languages for translation
+            lang1, lang2 = languages
+            # Create prompts for both translation directions
+            convos.append(create_prompt(example, lang1, lang2))
+            convos.append(create_prompt(example, lang2, lang1))
+    
     texts = [
         tokenizer.apply_chat_template(
             convo, tokenize=False, add_generation_prompt=False
@@ -131,15 +151,11 @@ def formatting_prompts_func(examples):
 def create_prompt(example, source_lang, target_lang):
     prompt = {
         "role": "user",
-        "content": f"""{source_lang.upper()}: {example[f'{source_lang}_artTitle']} {example[f'{source_lang}_artText']}
-{target_lang.upper()}:""",
+        "content": f"{source_lang.upper()}: {example[source_lang]}\n{target_lang.upper()}:",
     }
     answer = {
         "role": "assistant",
-        "content": f"""
-{example[f'{target_lang}_artTitle']}
-{example[f'{target_lang}_artText']}
-            """,
+        "content": f"{example[target_lang]}",
     }
     return [prompt, answer]
 
@@ -158,7 +174,7 @@ def preprocess(dataset):
 NUM_CPUs = os.cpu_count()
 
 print("Loading dataset...")
-dataset = load_dataset("joelniklaus/SwissLawTranslations", "article_level")
+dataset = load_dataset("joelniklaus/SwissLegalTranslations")
 
 print("Formatting prompts...")
 train = preprocess(dataset["train"])
@@ -185,7 +201,7 @@ trainer = SFTTrainer(
     # Can make training 5x faster for short sequences,
     # but increases preprocessing time (< 10min more, but it is cached afterwards)
     # Somehow does not use parallelization in preprocessing
-    packing=not debug,  # for 1B model: False: 10:35h, True: 3:30h
+    packing=True,  # for 1B model: False: 10:35h, True: 3:30h
     args=SFTConfig(
         per_device_train_batch_size=batch_size,
         gradient_accumulation_steps=gradient_accumulation_steps,
@@ -237,10 +253,9 @@ FastLanguageModel.for_inference(model)  # Enable native 2x faster inference
 print("Inferring...")
 article = "Die Todesstrafe ist abgeschafft. Niemand darf zu dieser Strafe verurteilt oder hingerichtet werden."
 messages = [
-    {"from": "human", "value": "Continue the fibonnaci sequence: 1, 1, 2, 3, 5, 8,"},
     {
         "from": "human",
-        "value": f"Translate the following Swiss law article from de to fr: {article}",
+        "value": f"DE: {article}\nFR:",
     },
 ]
 inputs = tokenizer.apply_chat_template(
@@ -255,7 +270,35 @@ print(tokenizer.batch_decode(outputs))
 
 ### Save the model
 print("Saving the model...")
-model.save_pretrained(run_name)  # Local saving
-tokenizer.save_pretrained(run_name)
-# model.push_to_hub("your_name/lora_model", token = "...") # Online saving
-# tokenizer.push_to_hub("your_name/lora_model", token = "...") # Online saving
+model.save_pretrained(f"models/{run_name}")  # Local saving
+tokenizer.save_pretrained(f"models/{run_name}")
+model.push_to_hub(f"joelniklaus/{run_name}", private=True)  # Online saving
+tokenizer.push_to_hub(f"joelniklaus/{run_name}", private=True)  # Online saving
+
+model.push_to_hub_gguf(
+    f"joelniklaus/{run_name}",
+    tokenizer,
+    quantization_method = ["q4_k_m", "q8_0", "q5_k_m",],
+    private = True, 
+)
+
+
+from unsloth import FastLanguageModel
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name = "lora_model", # YOUR MODEL YOU USED FOR TRAINING
+    max_seq_length = max_seq_length,
+    dtype = dtype,
+    load_in_4bit = load_in_4bit,
+)
+FastLanguageModel.for_inference(model) # Enable native 2x faster inference
+
+messages = [
+    {"from": "human", "value": "What is a famous tall tower in Paris?"},
+]
+inputs = tokenizer.apply_chat_template(
+    messages,
+    tokenize = True,
+    add_generation_prompt = True, # Must add for generation
+    return_tensors = "pt",
+).to("cuda")
+
