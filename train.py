@@ -1,12 +1,12 @@
 """
-Adapted from here: https://colab.research.google.com/drive/1lN6hPQveB_mHSnTOYifygFcrO8C1bxq4?usp=sharing#scrollTo=Edrn7Rxmojtu
+Trains a model on the SwissLegalTranslations dataset. Only works on NVIDIA GPUs due to unsloth.
 
+Adapted from here: https://colab.research.google.com/drive/1lN6hPQveB_mHSnTOYifygFcrO8C1bxq4?usp=sharing#scrollTo=Edrn7Rxmojtu
 """
 
 from ast import literal_eval
 import os
 
-import torch
 from transformers import EarlyStoppingCallback
 from trl import SFTTrainer, SFTConfig, DataCollatorForCompletionOnlyLM
 from datasets import load_dataset
@@ -28,11 +28,13 @@ Batch sizes on an 80GB H100 with max_seq_length=512:
 Llama-3.2-1B-Instruct: 128 uses 51GB VRAM
 Qwen2.5-7B-Instruct: 128 uses 74GB VRAM
 Qwen2.5-14B-Instruct: 128 uses 74GB VRAM
+Qwen2.5-0.5B-Instruct: 128 uses 59GB VRAM
 """
 
 model_name = "Llama-3.2-1B-Instruct"
-model_name = "Qwen2.5-14B-Instruct"
 model_name = "Qwen2.5-7B-Instruct"
+model_name = "Qwen2.5-14B-Instruct"
+model_name = "Qwen2.5-0.5B-Instruct"
 dataset_name = "SwissLegalTranslations"
 hf_model_name = f"unsloth/{model_name}-bnb-4bit"
 
@@ -59,9 +61,11 @@ max_seq_length = 512  # Can go down to this because when we look at the sentence
 dtype = None  # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
 load_in_4bit = True  # Use 4bit quantization to reduce memory usage. Can be False.
 
-run_name = f"{model_name}-{dataset_name}"
+run_name = f"SLT-{model_name}"
 
-device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+device = "cuda"  # Unsloth only supports CUDA
+
+seed = 42
 
 
 # 4bit pre quantized models we support for 4x faster downloading + no OOMs.
@@ -107,7 +111,7 @@ model = FastLanguageModel.get_peft_model(
     bias="none",  # Supports any, but = "none" is optimized
     # [NEW] "unsloth" uses 30% less VRAM, fits 2x larger batch sizes!
     use_gradient_checkpointing="unsloth",  # True or "unsloth" for very long context
-    random_state=42,
+    random_state=seed,
     # rank stabilized LoRA: slightly higher training time, but better results at higher ranks (e.g., 256): https://huggingface.co/blog/damjan-k/rslora
     use_rslora=True,
     loftq_config=None,  # And LoftQ
@@ -129,16 +133,16 @@ def formatting_prompts_func(examples):
                 print(f"Error parsing string: {e}")
                 print(f"Problematic string: {example}")
                 continue
-        
+
         # Get available languages from this specific example
         languages = list(example.keys())
-        
+
         if len(languages) == 2:  # We need exactly two languages for translation
             lang1, lang2 = languages
             # Create prompts for both translation directions
             convos.append(create_prompt(example, lang1, lang2))
             convos.append(create_prompt(example, lang2, lang1))
-    
+
     texts = [
         tokenizer.apply_chat_template(
             convo, tokenize=False, add_generation_prompt=False
@@ -168,6 +172,7 @@ def preprocess(dataset):
         num_proc=NUM_CPUs,
         remove_columns=dataset.column_names,
     )
+    dataset = dataset.shuffle(seed=seed)  # Add shuffling with a fixed seed for reproducibility
     return dataset
 
 
@@ -197,7 +202,7 @@ trainer = SFTTrainer(
     max_seq_length=max_seq_length,
     data_collator=completion_only_collator if train_on_responses_only else None,
     dataset_num_proc=NUM_CPUs,
-    callbacks=[EarlyStoppingCallback(3, 0.0)],
+    callbacks=[EarlyStoppingCallback(1, 0.0)],
     # Can make training 5x faster for short sequences,
     # but increases preprocessing time (< 10min more, but it is cached afterwards)
     # Somehow does not use parallelization in preprocessing
@@ -221,8 +226,8 @@ trainer = SFTTrainer(
         optim="adamw_8bit",
         weight_decay=0.01,
         lr_scheduler_type="linear",
-        seed=42,
-        output_dir="outputs",
+        seed=seed,
+        output_dir=f"outputs/{run_name}",
         report_to="tensorboard",
     ),
 )
