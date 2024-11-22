@@ -287,6 +287,6 @@ model.save_pretrained_merged(f"models/{run_name}-16bit", tokenizer, save_method=
 model.push_to_hub_merged(f"joelniklaus/{run_name}-16bit", tokenizer, save_method="merged_16bit", private=True)
 
 # Save 4bit merged weights
-model.save_pretrained_merged(f"models/{run_name}-4bit", tokenizer, save_method="merged_4bit")
-model.push_to_hub_merged(f"joelniklaus/{run_name}-4bit", tokenizer, save_method="merged_4bit", private=True)
+model.save_pretrained_merged(f"models/{run_name}-4bit", tokenizer, save_method="merged_4bit_forced")
+model.push_to_hub_merged(f"joelniklaus/{run_name}-4bit", tokenizer, save_method="merged_4bit_forced", private=True)
 
