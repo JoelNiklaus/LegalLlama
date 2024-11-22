@@ -270,40 +270,23 @@ inputs = tokenizer.apply_chat_template(
     return_tensors="pt",
 ).to(device)
 
-outputs = model.generate(input_ids=inputs, max_new_tokens=64, use_cache=True)
+outputs = model.generate(input_ids=inputs, max_new_tokens=256, use_cache=True)
 print(tokenizer.batch_decode(outputs))
 
 ### Save the model
 print("Saving the model...")
-model.save_pretrained(f"models/{run_name}")  # Local saving
+
+# Save LoRA weights
+model.save_pretrained(f"models/{run_name}")
 tokenizer.save_pretrained(f"models/{run_name}")
-model.push_to_hub(f"joelniklaus/{run_name}", private=True)  # Online saving
-tokenizer.push_to_hub(f"joelniklaus/{run_name}", private=True)  # Online saving
+model.push_to_hub(f"joelniklaus/{run_name}-LoRA", private=True)  
+tokenizer.push_to_hub(f"joelniklaus/{run_name}-LoRA", private=True)  
 
-model.push_to_hub_gguf(
-    f"joelniklaus/{run_name}",
-    tokenizer,
-    quantization_method = ["q4_k_m", "q8_0", "q5_k_m",],
-    private = True, 
-)
+# Save 16bit merged weights
+model.save_pretrained_merged(f"models/{run_name}-16bit", tokenizer, save_method="merged_16bit")
+model.push_to_hub_merged(f"joelniklaus/{run_name}-16bit", tokenizer, save_method="merged_16bit", private=True)
 
-
-from unsloth import FastLanguageModel
-model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name = "lora_model", # YOUR MODEL YOU USED FOR TRAINING
-    max_seq_length = max_seq_length,
-    dtype = dtype,
-    load_in_4bit = load_in_4bit,
-)
-FastLanguageModel.for_inference(model) # Enable native 2x faster inference
-
-messages = [
-    {"from": "human", "value": "What is a famous tall tower in Paris?"},
-]
-inputs = tokenizer.apply_chat_template(
-    messages,
-    tokenize = True,
-    add_generation_prompt = True, # Must add for generation
-    return_tensors = "pt",
-).to("cuda")
+# Save 4bit merged weights
+model.save_pretrained_merged(f"models/{run_name}-4bit", tokenizer, save_method="merged_4bit")
+model.push_to_hub_merged(f"joelniklaus/{run_name}-4bit", tokenizer, save_method="merged_4bit", private=True)
 
