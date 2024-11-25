@@ -17,24 +17,22 @@ from unsloth import FastLanguageModel, is_bfloat16_supported
 from unsloth.chat_templates import get_chat_template, train_on_responses_only
 
 
-"""
-Batch sizes on an 80GB H100 with max_seq_length=2048:
-unsloth/Phi-3.5-mini-instruct-bnb-4bit: 128 uses 59GB VRAM
-unsloth/Qwen2.5-7B-Instruct-bnb-4bit: 32 uses 66GB VRAM
-unsloth/Qwen2.5-14B-Instruct-bnb-4bit: 32 uses 72GB VRAM
-unsloth/gemma-2-27b-bnb-4bit: 16 uses 67GB VRAM
+import argparse
 
-Batch sizes on an 80GB H100 with max_seq_length=512:
-Llama-3.2-1B-Instruct: 128 uses 51GB VRAM
-Qwen2.5-7B-Instruct: 128 uses 74GB VRAM
-Qwen2.5-14B-Instruct: 128 uses 74GB VRAM
-Qwen2.5-0.5B-Instruct: 128 uses 59GB VRAM
-"""
+parser = argparse.ArgumentParser(description="Train a model on the SwissLegalTranslations dataset")
+parser.add_argument("--model_name", type=str)
+parser.add_argument("--batch_size", type=int, default=64)
+parser.add_argument("--push_to_hub", type=bool, default=False)
+parser.add_argument("--learning_rate", type=float, default=3e-4)
+parser.add_argument("--lora_rank", type=int, default=16)
+parser.add_argument("--num_epochs", type=int, default=5)
+# Can go down to 512 because when we look at the sentence level, they go rarely above 200 whitespace split words
+parser.add_argument("--max_seq_length", type=int, default=512)
+args = parser.parse_args()
 
-model_name = "Llama-3.2-1B-Instruct"
-model_name = "Qwen2.5-7B-Instruct"
-model_name = "Qwen2.5-14B-Instruct"
-model_name = "Qwen2.5-0.5B-Instruct"
+
+model_name = args.model_name
+
 dataset_name = "SwissLegalTranslations"
 hf_model_name = f"unsloth/{model_name}-bnb-4bit"
 
@@ -53,41 +51,19 @@ else:
 
 train_on_responses_only = False  # The loss starts lower, but training is not faster
 
-batch_size = 128
 total_batch_size = 128  # Keep this stable for reproducibility
-gradient_accumulation_steps = int(total_batch_size / batch_size)
-max_seq_length = 2048  # Choose any! We auto support RoPE Scaling internally!
-max_seq_length = 512  # Can go down to this because when we look at the sentence level, they go rarely above 200 whitespace split words
-dtype = None  # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
+gradient_accumulation_steps = int(total_batch_size / args.batch_size)
+dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
 load_in_4bit = True  # Use 4bit quantization to reduce memory usage. Can be False.
-
 run_name = f"SLT-{model_name}"
-
 device = "cuda"  # Unsloth only supports CUDA
-
 seed = 42
 
-
-# 4bit pre quantized models we support for 4x faster downloading + no OOMs.
-fourbit_models = [
-    "unsloth/Meta-Llama-3.1-8B-bnb-4bit",  # Llama-3.1 15 trillion tokens model 2x faster!
-    "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
-    "unsloth/Meta-Llama-3.1-70B-bnb-4bit",
-    "unsloth/Meta-Llama-3.1-405B-bnb-4bit",  # We also uploaded 4bit for 405b!
-    "unsloth/Mistral-Nemo-Base-2407-bnb-4bit",  # New Mistral 12b 2x faster!
-    "unsloth/Mistral-Nemo-Instruct-2407-bnb-4bit",
-    "unsloth/mistral-7b-v0.3-bnb-4bit",  # Mistral v3 2x faster!
-    "unsloth/mistral-7b-instruct-v0.3-bnb-4bit",
-    "unsloth/Phi-3.5-mini-instruct-bnb-4bit",  # Phi-3.5 2x faster!
-    "unsloth/Phi-3-medium-4k-instruct-bnb-4bit",
-    "unsloth/gemma-2-9b-bnb-4bit",
-    "unsloth/gemma-2-27b-bnb-4bit",  # Gemma 2x faster!
-]  # More models at https://huggingface.co/unsloth
 
 print("Loading model...")
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name=hf_model_name,
-    max_seq_length=max_seq_length,
+    max_seq_length=args.max_seq_length,
     dtype=dtype,
     load_in_4bit=load_in_4bit,
     # token = "hf_...", # use one if using gated models like meta-llama/Llama-2-7b-hf
@@ -96,7 +72,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
 print("Initializing PEFT model...")
 model = FastLanguageModel.get_peft_model(
     model,
-    r=128,  # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
+    r=args.lora_rank,  # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
     target_modules=[
         "q_proj",
         "k_proj",
@@ -172,7 +148,8 @@ def preprocess(dataset):
         num_proc=NUM_CPUs,
         remove_columns=dataset.column_names,
     )
-    dataset = dataset.shuffle(seed=seed)  # Add shuffling with a fixed seed for reproducibility
+    # Add shuffling with a fixed seed for reproducibility
+    dataset = dataset.shuffle(seed=seed)
     return dataset
 
 
@@ -199,30 +176,26 @@ trainer = SFTTrainer(
     train_dataset=train,
     eval_dataset=validation,
     dataset_text_field="text",
-    max_seq_length=max_seq_length,
+    max_seq_length=args.max_seq_length,
     data_collator=completion_only_collator if train_on_responses_only else None,
     dataset_num_proc=NUM_CPUs,
-    callbacks=[EarlyStoppingCallback(1, 0.0)],
-    # Can make training 5x faster for short sequences,
-    # but increases preprocessing time (< 10min more, but it is cached afterwards)
-    # Somehow does not use parallelization in preprocessing
-    packing=True,  # for 1B model: False: 10:35h, True: 3:30h
+    callbacks=[EarlyStoppingCallback(3, 0.0)], # We evaluate every 100 steps, so we can have patience of 3
+    packing=True,
     args=SFTConfig(
-        per_device_train_batch_size=batch_size,
+        per_device_train_batch_size=args.batch_size,
         gradient_accumulation_steps=gradient_accumulation_steps,
-        # warmup_steps=5,
-        # max_steps=10 if debug else -1,  # This is just for debugging
-        warmup_ratio=0.1,
-        num_train_epochs=1,
-        learning_rate=2e-4,
+        warmup_steps=1000,
+        num_train_epochs=args.num_epochs,
+        learning_rate=args.learning_rate,
         fp16=not is_bfloat16_supported(),
         bf16=is_bfloat16_supported(),
         load_best_model_at_end=True,
+        save_total_limit=3,
         eval_strategy="steps",
-        eval_steps=1000,
+        eval_steps=200,
         save_strategy="steps",
-        save_steps=1000,
-        logging_steps=1,
+        save_steps=200,
+        logging_steps=10,
         optim="adamw_8bit",
         weight_decay=0.01,
         lr_scheduler_type="linear",
@@ -279,14 +252,26 @@ print("Saving the model...")
 # Save LoRA weights
 model.save_pretrained(f"models/{run_name}")
 tokenizer.save_pretrained(f"models/{run_name}")
-model.push_to_hub(f"joelniklaus/{run_name}-LoRA", private=True)  
-tokenizer.push_to_hub(f"joelniklaus/{run_name}-LoRA", private=True)  
 
-# Save 16bit merged weights
-model.save_pretrained_merged(f"models/{run_name}-16bit", tokenizer, save_method="merged_16bit")
-model.push_to_hub_merged(f"joelniklaus/{run_name}-16bit", tokenizer, save_method="merged_16bit", private=True)
+if args.push_to_hub:
+    model.push_to_hub(f"joelniklaus/{run_name}-LoRA", private=True)
+    tokenizer.push_to_hub(f"joelniklaus/{run_name}-LoRA", private=True)
 
-# Save 4bit merged weights
-model.save_pretrained_merged(f"models/{run_name}-4bit", tokenizer, save_method="merged_4bit_forced")
-model.push_to_hub_merged(f"joelniklaus/{run_name}-4bit", tokenizer, save_method="merged_4bit_forced", private=True)
+    # Save 16bit merged weights
+    #model.save_pretrained_merged(
+    #    f"models/{run_name}-16bit", tokenizer, save_method="merged_16bit"
+    #)
+    model.push_to_hub_merged(
+        f"joelniklaus/{run_name}-16bit", tokenizer, save_method="merged_16bit", private=True
+    )
 
+    # Save 4bit merged weights
+    #model.save_pretrained_merged(
+    #    f"models/{run_name}-4bit", tokenizer, save_method="merged_4bit_forced"
+    #)
+    model.push_to_hub_merged(
+        f"joelniklaus/{run_name}-4bit",
+        tokenizer,
+        save_method="merged_4bit_forced",
+        private=True,
+    )
