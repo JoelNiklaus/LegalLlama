@@ -22,9 +22,10 @@ import argparse
 parser = argparse.ArgumentParser(description="Train a model on the SwissLegalTranslations dataset")
 parser.add_argument("--model_name", type=str)
 parser.add_argument("--batch_size", type=int, default=64)
-parser.add_argument("--push_to_hub", type=bool, default=False)
+parser.add_argument("--push_to_hub", action="store_true")
+parser.add_argument("--report_to", type=str, default="tensorboard")
 parser.add_argument("--learning_rate", type=float, default=3e-4)
-parser.add_argument("--lora_rank", type=int, default=16)
+parser.add_argument("--lora_rank", type=int, default=128)
 parser.add_argument("--num_epochs", type=int, default=5)
 # Can go down to 512 because when we look at the sentence level, they go rarely above 200 whitespace split words
 parser.add_argument("--max_seq_length", type=int, default=512)
@@ -32,6 +33,8 @@ args = parser.parse_args()
 
 
 model_name = args.model_name
+
+print(f"Training model: {model_name} with batch size: {args.batch_size}")
 
 dataset_name = "SwissLegalTranslations"
 hf_model_name = f"unsloth/{model_name}-bnb-4bit"
@@ -170,6 +173,8 @@ completion_only_collator = DataCollatorForCompletionOnlyLM(
     mlm=False,
 )
 
+# TODO: try pytorch bleu metric during evaluation
+
 trainer = SFTTrainer(
     model=model,
     tokenizer=tokenizer,
@@ -201,7 +206,7 @@ trainer = SFTTrainer(
         lr_scheduler_type="linear",
         seed=seed,
         output_dir=f"outputs/{run_name}",
-        report_to="tensorboard",
+        report_to=args.report_to,
     ),
 )
 
