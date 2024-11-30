@@ -26,12 +26,12 @@ set +a
 MODELS=("gemma-2-2b-it" "gemma-2-9b-it" "gemma-2-27b-it")
 
 
-MODELS_128=("Qwen2.5-7B-Instruct" "Qwen2.5-3B-Instruct" "Qwen2.5-1.5B-Instruct" "Qwen2.5-0.5B-Instruct" "Phi-3.5-mini-instruct" "Phi-3-medium-4k-instruct" "Meta-Llama-3.1-8B-Instruct" "Llama-3.2-3B-Instruct" "Llama-3.2-1B-Instruct")
+MODELS_128=("Phi-3-small-4k-instruct" "Llama-3.2-3B-Instruct" "Llama-3.2-1B-Instruct")
 MODELS_64=()
 MODELS_32=("Qwen2.5-32B-Instruct")
 MODELS_16=("Qwen2.5-72B-Instruct" "Meta-Llama-3.1-70B-Instruct")
 
-MODELS_128_DONE=("mistral-7b-instruct-v0.3" "Qwen2.5-14B-Instruct")
+MODELS_128_DONE=("Meta-Llama-3.1-8B-Instruct" "Phi-3.5-mini-instruct" "Phi-3-medium-4k-instruct" "mistral-7b-instruct-v0.3" "Qwen2.5-14B-Instruct" "Qwen2.5-7B-Instruct" "Qwen2.5-3B-Instruct" "Qwen2.5-1.5B-Instruct" "Qwen2.5-0.5B-Instruct")
 
 for model in "${MODELS_128[@]}"; do
     python3 train.py --model_name $model --batch_size 128 --learning_rate 1e-4 --lora_rank 16 --num_epochs 5 --push_to_hub
