@@ -1,0 +1,77 @@
+Things to try:
+- Trying learning rate 1e-4 instead of 2e-4
+
+I tried to evaluate with different metrics during training, but always got OOMs.
+
+Qwen2.5-0.5B-Instruct:
+
+    lora rank 128
+
+    With baseline settings train loss decreases nicely and fast to 0.7 but eval loss is around 1.5. 
+    Can we push down the eval loss more?
+
+    Experiment Nov22_10-57: baseline settings 
+        => fastest train loss decrease so far
+
+    Experiment Nov22_14-28: lr 1e-4 instead of 2e-4, warmup steps 1000 instead of 2200, shuffling dataset 
+        => slightly slower convergence, no improvement in eval loss
+
+    Experiment Nov22_18-58: batch size 64 instead of 128 
+        => even slower convergence, no improvement in eval loss
+
+    Experiment Nov22_21-31: weight_decay 0.1 instead of 0.01, label_smoothing_factor 0.1 instead of 0.0 
+        => much slower training, much higher eval loss (label_smoothing_factor 0.1 is too high, leading to slow training)
+
+    Experiment Nov22_22-20: weight_decay 0.1, label_smoothing_factor 0.0 instead of 0.1 
+        => very similar to Nov22_18-58, higher weight decay does not seem to have any effect
+
+    Experiment Nov23_15-59: batch size 64 instead of 128, label_smoothing_factor 0.05 instead of 0.0
+        => in terms of eval loss, no improvement
+
+    Experiment Nov23_19-53: learning rate 2e-3 instead of 2e-4
+        => has a loss spike
+
+    Experiment Nov23_21-37: learning rate 2e-5 instead of 2e-4
+        => trains slow but steadily, may reach lower eval loss but not sure
+    
+    Experiment Nov23_23-30: learning rate 5e-5 instead of 2e-4, 5 epochs instead of 3
+        Hypothesis: see if a learning rate in between is better
+        => trains slower
+
+    lora rank 16
+
+    Experiment Nov24_23-30: learning rate 5e-4 instead of 2e-4, 5 epochs instead of 3
+        Hypothesis: see if a slightly larger learning rate is even better
+        => trains faster but risks diverging
+
+    Experiment Nov25_09-19: learning rate 1e-4 instead of 2e-4
+        => converges slower, less good eval loss
+
+    Experiment Nov25_12-25: learning rate 3e-4 instead of 2e-4
+        => trains well, maybe the difference to the very first run is because of the lower lora rank
+
+Qwen2.5-7B-Instruct:
+
+    Experiment Nov22_23-06: trying a large model to compare what eval loss we can get, lora rank 16
+        => Here it looks healthy: train loss decreases nicely and fast to 0.88, eval loss is around 1.2
+        Only very few epochs is enough, but we need more granular stopping to get the best model
+
+    Experiment Nov23_08-13: trying lora rank 128, saving and evaluating every 500 steps, only 3 epochs maximum
+        => train loss 0.67, eval loss 1.21: larger lora rank does not seem to help
+
+    Experiment Nov24_02-27: learning rate 5e-5 instead of 2e-4, 5 epochs instead of 3
+        Hypothesis: see if a learning rate in between is better
+        => converges slower, but trains well
+
+    Experiment Nov24_22-17: learning rate 5e-4 instead of 2e-4, 5 epochs instead of 3
+        => diverges    
+
+
+Mistral-7B-Instruct:
+
+    Experiment Nov24_10-49: learning rate 5e-5 instead of 2e-4
+        => seems to train well
+
+    Experiment Nov25_02-30: learning rate 5e-4 instead of 2e-4
+        => converges faster, but stops very early
+
