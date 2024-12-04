@@ -30,6 +30,7 @@ parser.add_argument("--num_epochs", type=int, default=5)
 # Can go down to 512 because when we look at the sentence level, they go rarely above 200 whitespace split words
 parser.add_argument("--max_seq_length", type=int, default=512)
 parser.add_argument("--resume_from_checkpoint", action="store_true")
+parser.add_argument("--temporary_location", type=str, default="/ephemeral/_unsloth_temporary_saved_buffers")
 args = parser.parse_args()
 
 
@@ -268,7 +269,7 @@ if args.push_to_hub:
     #    f"models/{run_name}-16bit", tokenizer, save_method="merged_16bit"
     #)
     model.push_to_hub_merged(
-        f"joelniklaus/{run_name}-16bit", tokenizer, save_method="merged_16bit", private=True
+        f"joelniklaus/{run_name}-16bit", tokenizer, save_method="merged_16bit", private=True, temporary_location=args.temporary_location
     )
 
     # Save 4bit merged weights
@@ -280,4 +281,5 @@ if args.push_to_hub:
         tokenizer,
         save_method="merged_4bit_forced",
         private=True,
+        temporary_location=args.temporary_location,
     )
