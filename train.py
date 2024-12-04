@@ -29,6 +29,7 @@ parser.add_argument("--lora_rank", type=int, default=128)
 parser.add_argument("--num_epochs", type=int, default=5)
 # Can go down to 512 because when we look at the sentence level, they go rarely above 200 whitespace split words
 parser.add_argument("--max_seq_length", type=int, default=512)
+parser.add_argument("--resume_from_checkpoint", action="store_true")
 args = parser.parse_args()
 
 
@@ -212,7 +213,7 @@ trainer = SFTTrainer(
 
 
 print("Training...")
-trainer_stats = trainer.train()
+trainer_stats = trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
 print(trainer_stats)
 
 
