@@ -9,8 +9,7 @@ run_names = ["SLT-Qwen2.5-72B-Instruct"]
 for run_name in run_names:
     print(f"Uploading {run_name}")
     model, tokenizer = FastLanguageModel.from_pretrained(
-        #model_name=f"joelniklaus/{run_name}",
-        model_name=f"joelniklaus/SLT-Qwen2.5-72B-Instruct-LoRA",
+        model_name=f"models/{run_name}",
         max_seq_length=max_seq_length,
         dtype=dtype,
         load_in_4bit=load_in_4bit,
