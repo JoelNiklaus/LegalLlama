@@ -23,6 +23,7 @@ parser = argparse.ArgumentParser(description="Train a model on the SwissLegalTra
 parser.add_argument("--model_name", type=str)
 parser.add_argument("--batch_size", type=int, default=64)
 parser.add_argument("--push_to_hub", action="store_true")
+parser.add_argument("--hf_org", type=str, default="SwiLTra-Bench")
 parser.add_argument("--report_to", type=str, default="tensorboard")
 parser.add_argument("--learning_rate", type=float, default=3e-4)
 parser.add_argument("--lora_rank", type=int, default=128)
@@ -40,7 +41,12 @@ model_name = args.model_name
 print(f"Training model: {model_name} with batch size: {args.batch_size}")
 
 dataset_name = "SwissLegalTranslations"
-hf_model_name = f"unsloth/{model_name}-bnb-4bit"
+if "/" in model_name:
+    hf_model_name = model_name
+    run_name = f"SLT-{model_name.split('/')[-1]}"
+else:
+    hf_model_name = f"unsloth/{model_name}-bnb-4bit"
+    run_name = f"SLT-{model_name}"
 
 if "llama" in model_name.lower():
     chat_template = "llama"  # Supports zephyr, chatml, mistral, llama, alpaca, vicuna, vicuna_old, unsloth, phi-3
@@ -61,7 +67,6 @@ total_batch_size = 128  # Keep this stable for reproducibility
 gradient_accumulation_steps = int(total_batch_size / args.batch_size)
 dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
 load_in_4bit = True  # Use 4bit quantization to reduce memory usage. Can be False.
-run_name = f"SLT-{model_name}"
 device = "cuda"  # Unsloth only supports CUDA
 seed = 42
 
@@ -262,15 +267,15 @@ model.save_pretrained(f"models/{run_name}")
 tokenizer.save_pretrained(f"models/{run_name}")
 
 if args.push_to_hub:
-    model.push_to_hub(f"joelniklaus/{run_name}-LoRA", private=True)
-    tokenizer.push_to_hub(f"joelniklaus/{run_name}-LoRA", private=True)
+    model.push_to_hub(f"{args.hf_org}/{run_name}-LoRA", private=True)
+    tokenizer.push_to_hub(f"{args.hf_org}/{run_name}-LoRA", private=True)
 
     # Save 16bit merged weights
     #model.save_pretrained_merged(
     #    f"models/{run_name}-16bit", tokenizer, save_method="merged_16bit"
     #)
     model.push_to_hub_merged(
-        f"joelniklaus/{run_name}-16bit", tokenizer, save_method="merged_16bit", private=True, temporary_location=args.temporary_location
+        f"{args.hf_org}/{run_name}-16bit", tokenizer, save_method="merged_16bit", private=True, temporary_location=args.temporary_location
     )
 
     # Save 4bit merged weights
@@ -278,7 +283,7 @@ if args.push_to_hub:
     #    f"models/{run_name}-4bit", tokenizer, save_method="merged_4bit_forced"
     #)
     model.push_to_hub_merged(
-        f"joelniklaus/{run_name}-4bit",
+        f"{args.hf_org}/{run_name}-4bit",
         tokenizer,
         save_method="merged_4bit_forced",
         private=True,
