@@ -4,7 +4,8 @@ temporary_location = "/ephemeral/_unsloth_temporary_saved_buffers"
 max_seq_length = 512
 dtype = None
 load_in_4bit = True
-run_names = ["SLT-Qwen2.5-72B-Instruct"]
+hf_org = "SwiLTra-Bench"
+run_names = ["SLT-gemma-2-9b-it"]
 
 for run_name in run_names:
     print(f"Uploading {run_name}")
@@ -16,15 +17,15 @@ for run_name in run_names:
     )
 
     # Save LoRA weights
-    model.push_to_hub(f"joelniklaus/{run_name}-LoRA", private=True)
-    tokenizer.push_to_hub(f"joelniklaus/{run_name}-LoRA", private=True)
+    model.push_to_hub(f"{hf_org}/{run_name}-LoRA", private=True)
+    tokenizer.push_to_hub(f"{hf_org}/{run_name}-LoRA", private=True)
 
     # Save 16bit merged weights
     #model.save_pretrained_merged(f"models/{run_name}-16bit", tokenizer, save_method="merged_16bit")
-    model.push_to_hub_merged(f"joelniklaus/{run_name}-16bit", tokenizer, save_method="merged_16bit", private=True, temporary_location=temporary_location)
+    model.push_to_hub_merged(f"{hf_org}/{run_name}-16bit", tokenizer, save_method="merged_16bit", private=True, temporary_location=temporary_location)
 
     # Save 4bit merged weights
     #model.save_pretrained_merged(f"models/{run_name}-4bit", tokenizer, save_method="merged_4bit_forced")
-    model.push_to_hub_merged(f"joelniklaus/{run_name}-4bit", tokenizer, save_method="merged_4bit_forced", private=True, temporary_location=temporary_location)
+    model.push_to_hub_merged(f"{hf_org}/{run_name}-4bit", tokenizer, save_method="merged_4bit_forced", private=True, temporary_location=temporary_location)
 
 
